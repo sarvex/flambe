@@ -18,7 +18,7 @@ class FlambeTest(unittest.TestCase):
     # Test classes are generated automagically further below
     __test__ = False
 
-    def setUp (self):
+    def setUp(self):
         self.username = "flambe"
         self.key = os.environ["SAUCE_ACCESS_KEY"]
 
@@ -29,7 +29,7 @@ class FlambeTest(unittest.TestCase):
             self.caps["tags"] = [os.environ["TRAVIS_BRANCH"]]
 
         # localhost:4445 gets tunneled over Sauce Connect
-        hub_url = "http://%s:%s@localhost:4445/wd/hub" % (self.username, self.key)
+        hub_url = f"http://{self.username}:{self.key}@localhost:4445/wd/hub"
         self.driver = webdriver.Remote(desired_capabilities=self.caps, command_executor=hub_url)
 
         self.job_id = self.driver.session_id
@@ -50,18 +50,22 @@ class FlambeTest(unittest.TestCase):
         # The status will be "OK", or the error message if something went wrong
         self.assertEquals(status[0], "OK")
 
-    def tearDown (self):
+    def tearDown(self):
         self.driver.quit()
 
         # Tell Sauce whether the test failed or passed
-        auth = base64.encodestring("%s:%s" % (self.username, self.key))[:-1]
+        auth = base64.encodestring(f"{self.username}:{self.key}")[:-1]
         result = json.dumps({"passed": sys.exc_info() == (None, None, None)})
         connection = httplib.HTTPConnection("saucelabs.com")
-        connection.request("PUT", "/rest/v1/%s/jobs/%s" % (self.username, self.job_id),
-                           result, headers={"Authorization": "Basic %s" % auth})
+        connection.request(
+            "PUT",
+            f"/rest/v1/{self.username}/jobs/{self.job_id}",
+            result,
+            headers={"Authorization": f"Basic {auth}"},
+        )
         self.assertEquals(connection.getresponse().status, 200)
 
-        print("Job summary: https://saucelabs.com/jobs/%s" % self.job_id)
+        print(f"Job summary: https://saucelabs.com/jobs/{self.job_id}")
 
 # Some platform tests currently disabled:
 # - iOS 6: Seems to crash Safari when using Web Audio from the simulator
@@ -94,10 +98,9 @@ PLATFORMS = [
 classes = {}
 for index, platform in enumerate(PLATFORMS):
     d = dict(FlambeTest.__dict__)
-    name = "%s_%s_%s_%s" % (FlambeTest.__name__, platform["browserName"],
-        platform.get("platform", "ANY"), index)
+    name = f'{FlambeTest.__name__}_{platform["browserName"]}_{platform.get("platform", "ANY")}_{index}'
     name = name.replace(" ", "").replace(".", "")
-    d.update({"__test__": True, "caps": platform})
+    d |= {"__test__": True, "caps": platform}
     classes[name] = new.classobj(name, (FlambeTest,), d)
 
 globals().update(classes)
